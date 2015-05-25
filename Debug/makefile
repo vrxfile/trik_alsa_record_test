@@ -44,7 +44,7 @@ all: trik_alsa_record_1
 trik_alsa_record_1: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	/opt/trik-sdk/sysroots/i686-oesdk-linux/usr/bin/arm-oe-linux-gnueabi/arm-oe-linux-gnueabi-g++ -lpthread -o"trik_alsa_record_1" $(OBJS) $(USER_OBJS) $(LIBS)
+	/opt/trik-sdk/sysroots/i686-oesdk-linux/usr/bin/arm-oe-linux-gnueabi/arm-oe-linux-gnueabi-g++ -lpthread `pkg-config --libs alsa` -o"trik_alsa_record_1" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

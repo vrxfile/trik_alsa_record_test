@@ -28,13 +28,15 @@ using namespace std;
 #define FOPEN_ERROR	10
 #define FCLOSE_ERROR	11
 #define SNDREAD_ERROR	12
+#define START_ERROR	13
 
 #define MAX_BUF_SIZE	128
 #define MAX_SAMPLES	65536
 
 static char *snd_device = "default";
-snd_pcm_t *capture_handle;
-snd_pcm_hw_params_t *hw_params;
+snd_pcm_t* capture_handle;
+snd_pcm_hw_params_t* hw_params;
+snd_pcm_info_t* s_info;
 
 FILE* fwav; // Input file descriptor
 struct wav_header // Wav file header structure
@@ -126,8 +128,6 @@ int init_soundcard()
 		return PARAMS_ERROR;
 	}
 
-	snd_pcm_hw_params_free(hw_params);
-
 	if ((err = snd_pcm_prepare(capture_handle)) < 0)
 	{
 		fprintf(
@@ -136,6 +136,67 @@ int init_soundcard()
 				snd_strerror(err));
 		return PREPARE_ERROR;
 	}
+	/*
+	cout << "Parameters of PCM:" << endl;
+	cout << snd_pcm_name(capture_handle) << endl;
+	cout << snd_pcm_type(capture_handle) << endl;
+	cout << snd_pcm_stream(capture_handle) << endl;
+	cout << snd_pcm_poll_descriptors_count(capture_handle) << endl;
+	cout << snd_pcm_state(capture_handle) << endl;
+	cout << snd_pcm_avail(capture_handle) << endl;
+	cout << snd_pcm_avail_update(capture_handle) << endl;
+	cout << snd_pcm_rewindable(capture_handle) << endl;
+	cout << snd_pcm_forwardable(capture_handle) << endl;
+	cout << "-------------------------------------" << endl;
+	cout << snd_pcm_info_malloc(&s_info) << endl;
+	cout << snd_pcm_info(capture_handle, s_info) << endl;
+	cout << snd_pcm_info_get_device(s_info) << endl;
+	cout << snd_pcm_info_get_subdevice(s_info) << endl;
+	cout << snd_pcm_info_get_stream(s_info) << endl;
+	cout << snd_pcm_info_get_card(s_info) << endl;
+	cout << snd_pcm_info_get_id(s_info) << endl;
+	cout << snd_pcm_info_get_name(s_info) << endl;
+	cout << snd_pcm_info_get_subdevice_name(s_info) << endl;
+	cout << snd_pcm_info_get_class(s_info) << endl;
+	cout << snd_pcm_info_get_subclass(s_info) << endl;
+	cout << snd_pcm_info_get_subdevices_count(s_info) << endl;
+	cout << snd_pcm_info_get_subdevices_avail(s_info) << endl;
+	cout << "-------------------------------------" << endl;
+	cout << snd_pcm_hw_params_current(capture_handle, hw_params) << endl;
+	cout << snd_pcm_hw_params_is_double(hw_params) << endl;
+	cout << snd_pcm_hw_params_is_batch(hw_params) << endl;
+	cout << snd_pcm_hw_params_is_block_transfer(hw_params) << endl;
+	cout << snd_pcm_hw_params_is_monotonic(hw_params) << endl;
+	cout << snd_pcm_hw_params_can_overrange(hw_params) << endl;
+	cout << snd_pcm_hw_params_can_pause(hw_params) << endl;
+	cout << snd_pcm_hw_params_can_resume(hw_params) << endl;
+	cout << snd_pcm_hw_params_is_half_duplex(hw_params) << endl;
+	cout << snd_pcm_hw_params_is_joint_duplex(hw_params) << endl;
+	cout << snd_pcm_hw_params_can_sync_start(hw_params) << endl;
+	cout << snd_pcm_hw_params_can_disable_period_wakeup(hw_params) << endl;
+	cout << snd_pcm_hw_params_get_sbits(hw_params) << endl;
+	cout << snd_pcm_hw_params_get_fifo_size(hw_params) << endl;
+	cout << "-------------------------------------" << endl;
+	unsigned int *tmp1 = (unsigned int *)malloc(sizeof(unsigned int));
+	int *tmp2 = (int *)malloc(sizeof(int));
+	cout << snd_pcm_hw_params_get_channels(hw_params, tmp1) << endl; cout << *tmp1 << endl;
+	cout << snd_pcm_hw_params_get_channels_min(hw_params, tmp1) << endl; cout << *tmp1 << endl;
+	cout << snd_pcm_hw_params_get_channels_max(hw_params, tmp1) << endl; cout << *tmp1 << endl;
+	cout << snd_pcm_hw_params_get_rate(hw_params, tmp1, tmp2) << endl; cout << *tmp1 << " " << *tmp2 << endl;
+	cout << snd_pcm_hw_params_get_rate_min(hw_params, tmp1, tmp2) << endl; cout << *tmp1 << " " << *tmp2 << endl;
+	cout << snd_pcm_hw_params_get_rate_max(hw_params, tmp1, tmp2) << endl; cout << *tmp1 << " " << *tmp2 << endl;
+	cout << snd_pcm_hw_params_get_rate_resample(capture_handle, hw_params, tmp1) << endl; cout << *tmp1 << endl;
+	cout << snd_pcm_hw_params_get_export_buffer(capture_handle, hw_params, tmp1) << endl; cout << *tmp1 << endl;
+	cout << snd_pcm_hw_params_get_period_wakeup(capture_handle, hw_params, tmp1) << endl; cout << *tmp1 << endl;
+	cout << snd_pcm_hw_params_get_period_time(hw_params, tmp1, tmp2) << endl; cout << *tmp1 << " " << *tmp2 << endl;
+	cout << snd_pcm_hw_params_get_period_time_min(hw_params, tmp1, tmp2) << endl; cout << *tmp1 << " " << *tmp2 << endl;
+	cout << snd_pcm_hw_params_get_period_time_max(hw_params, tmp1, tmp2) << endl; cout << *tmp1 << " " << *tmp2 << endl;
+	*/
+
+	snd_pcm_hw_params_free(hw_params);
+	//snd_pcm_info_free(s_info);
+	//free(tmp1);
+	//free(tmp2);
 
 	return NO_ERROR;
 }
@@ -222,10 +283,16 @@ int do_record()
 	uint32_t i = 0;
 	int err = 0;
 	char wav_data[MAX_BUF_SIZE];
-
+	if ((err = snd_pcm_start(capture_handle)) < 0)
+	{
+		fprintf(
+				stderr,
+				"cannot start soundcard (%s)\n",
+				snd_strerror(err));
+		return START_ERROR;
+	}
 	for (i = 0; i < ncount; i++)
 	{
-		cout << "Start" << endl;
 		if ((err = snd_pcm_readi(capture_handle, wav_data, MAX_BUF_SIZE)) != MAX_BUF_SIZE)
 		{
 			fprintf(
@@ -234,7 +301,6 @@ int do_record()
 					snd_strerror(err));
 			return SNDREAD_ERROR;
 		}
-		cout << "Read" << endl;
 		if (fwav != NULL)
 		{
 			fwrite(wav_data, 1, MAX_BUF_SIZE, fwav);
@@ -244,10 +310,7 @@ int do_record()
 			fprintf(stderr, "cannot write data to file\n");
 			return FOPEN_ERROR;
 		}
-
-		cout << i << endl;
 	}
-
 	return NO_ERROR;
 }
 

@@ -31,7 +31,7 @@ using namespace std;
 #define START_ERROR	13
 
 #define MAX_BUF_SIZE	128
-#define MAX_SAMPLES	65536
+#define MAX_SAMPLES	153600
 
 static char *snd_device = "default";
 snd_pcm_t* capture_handle;
@@ -113,7 +113,7 @@ int init_soundcard()
 		return RATE_ERROR;
 	}
 
-	if ((err = snd_pcm_hw_params_set_channels(capture_handle, hw_params, 1))
+	if ((err = snd_pcm_hw_params_set_channels(capture_handle, hw_params, 2))
 			< 0)
 	{
 		fprintf(stderr, "cannot set channel count (%s)\n",
@@ -226,7 +226,7 @@ int init_wav_header()
 	wav_h.Subchunk2ID[1] = 'a';
 	wav_h.Subchunk2ID[2] = 't';
 	wav_h.Subchunk2ID[3] = 'a';
-	wav_h.NumChannels = 1;
+	wav_h.NumChannels = 2;
 	wav_h.BitsPerSample = 8;
 	wav_h.Subchunk2Size = MAX_SAMPLES * (uint32_t) wav_h.NumChannels
 			* (uint32_t) wav_h.BitsPerSample / 8;
@@ -246,7 +246,7 @@ int init_wav_header()
 /// Open wav file and write header
 int init_wav_file()
 {
-	fwav = fopen("test_wav1.wav", "wb");
+	fwav = fopen("test_wav2.wav", "wb");
 	if (fwav != NULL)
 	{
 		fwrite(&wav_h, 1, sizeof(wav_h), fwav);

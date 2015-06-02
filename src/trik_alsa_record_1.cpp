@@ -34,10 +34,13 @@ using namespace std;
 //#define MAX_SAMPLES	38400
 #define MAX_SAMPLES	256000
 
-static char *snd_device = "default";
+static char* snd_device = "default";
 snd_pcm_t* capture_handle;
 snd_pcm_hw_params_t* hw_params;
 snd_pcm_info_t* s_info;
+unsigned int srate = 44100;
+unsigned int nchan = 2;
+char* wav_name = "test_wav11.wav";
 
 FILE* fwav; // Input file descriptor
 struct wav_header // Wav file header structure
@@ -62,7 +65,6 @@ struct wav_header wav_h; // Wav header data
 int init_soundcard()
 {
 	int err = 0;
-	unsigned int srate = 44100;
 
 	if ((err = snd_pcm_open(&capture_handle, snd_device,
 			SND_PCM_STREAM_CAPTURE, 0)) < 0)
@@ -114,7 +116,7 @@ int init_soundcard()
 		return RATE_ERROR;
 	}
 
-	if ((err = snd_pcm_hw_params_set_channels(capture_handle, hw_params, 2))
+	if ((err = snd_pcm_hw_params_set_channels(capture_handle, hw_params, nchan))
 			< 0)
 	{
 		fprintf(stderr, "cannot set channel count (%s, %d)\n",
@@ -227,14 +229,14 @@ int init_wav_header()
 	wav_h.Subchunk2ID[1] = 'a';
 	wav_h.Subchunk2ID[2] = 't';
 	wav_h.Subchunk2ID[3] = 'a';
-	wav_h.NumChannels = 2;
+	wav_h.NumChannels = nchan;
 	wav_h.BitsPerSample = 16;
 	wav_h.Subchunk2Size = MAX_SAMPLES * (uint32_t) wav_h.NumChannels
 			* (uint32_t) wav_h.BitsPerSample / 8;
 	wav_h.ChunkSize = (uint32_t) wav_h.Subchunk2Size + 36;
 	wav_h.Subchunk1Size = 16;
 	wav_h.AudioFormat = 1;
-	wav_h.SampleRate = 44100;
+	wav_h.SampleRate = srate;
 	wav_h.ByteRate = (uint32_t) wav_h.SampleRate
 			* (uint32_t) wav_h.NumChannels
 			* (uint32_t) wav_h.BitsPerSample / 8;
@@ -247,7 +249,7 @@ int init_wav_header()
 /// Open wav file and write header
 int init_wav_file()
 {
-	fwav = fopen("test_wav4.wav", "wb");
+	fwav = fopen(wav_name, "wb");
 	if (fwav != NULL)
 	{
 		fwrite(&wav_h, 1, sizeof(wav_h), fwav);

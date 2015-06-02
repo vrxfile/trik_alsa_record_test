@@ -40,7 +40,7 @@ snd_pcm_hw_params_t* hw_params;
 snd_pcm_info_t* s_info;
 unsigned int srate = 44100;
 unsigned int nchan = 2;
-char* wav_name = "test_wav11.wav";
+char* wav_name = "test_wav13.wav";
 
 FILE* fwav; // Input file descriptor
 struct wav_header // Wav file header structure
@@ -139,8 +139,18 @@ int init_soundcard()
 				snd_strerror(err), err);
 		return PREPARE_ERROR;
 	}
+	if ((err = snd_pcm_start(capture_handle)) < 0)
+	{
+		fprintf(
+				stderr,
+				"cannot start soundcard (%s, %d)\n",
+				snd_strerror(err), err);
+		return START_ERROR;
+	}
+
 	/*
 	cout << "Parameters of PCM:" << endl;
+	cout << capture_handle << endl;
 	cout << snd_pcm_name(capture_handle) << endl;
 	cout << snd_pcm_type(capture_handle) << endl;
 	cout << snd_pcm_stream(capture_handle) << endl;
@@ -247,9 +257,9 @@ int init_wav_header()
 }
 
 /// Open wav file and write header
-int init_wav_file()
+int init_wav_file(char *fname)
 {
-	fwav = fopen(wav_name, "wb");
+	fwav = fopen(fname, "wb");
 	if (fwav != NULL)
 	{
 		fwrite(&wav_h, 1, sizeof(wav_h), fwav);
@@ -286,14 +296,6 @@ int do_record()
 	uint32_t i = 0;
 	int err = 0;
 	char wav_data[MAX_BUF_SIZE * 4];
-	if ((err = snd_pcm_start(capture_handle)) < 0)
-	{
-		fprintf(
-				stderr,
-				"cannot start soundcard (%s, %d)\n",
-				snd_strerror(err), err);
-		return START_ERROR;
-	}
 	for (i = 0; i < ncount; i++)
 	{
 
@@ -335,24 +337,30 @@ int do_record()
 
 int main(int argc, char *argv[])
 {
-	cout << "Open default soundcard" << endl;
-	init_soundcard();
+	if (argc != 2)
+	{
+		cout << "File name error!" << endl;
+	}
+	else
+	{
+		cout << "Open default soundcard" << endl;
+		init_soundcard();
 
-	cout << "Init wave file header" << endl;
-	init_wav_header();
+		cout << "Init wave file header" << endl;
+		init_wav_header();
 
-	cout << "Open and init wave file" << endl;
-	init_wav_file();
+		cout << "Open and init wave file" << endl;
+		init_wav_file(argv[1]);
 
+		cout << "Record process..." << endl;
+		do_record();
 
-	cout << "Record process..." << endl;
-	do_record();
+		cout << "Close wave file" << endl;
+		close_wav_file();
 
-	cout << "Close wave file" << endl;
-	close_wav_file();
-
-	cout << "Close default soundcard" << endl;
-	close_soundcard();
+		cout << "Close default soundcard" << endl;
+		close_soundcard();
+	}
 
 	return 0;
 }

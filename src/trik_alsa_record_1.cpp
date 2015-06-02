@@ -30,8 +30,9 @@ using namespace std;
 #define SNDREAD_ERROR	12
 #define START_ERROR	13
 
-#define MAX_BUF_SIZE	128
-#define MAX_SAMPLES	153600
+#define MAX_BUF_SIZE	512
+//#define MAX_SAMPLES	38400
+#define MAX_SAMPLES	256000
 
 static char *snd_device = "default";
 snd_pcm_t* capture_handle;
@@ -66,8 +67,8 @@ int init_soundcard()
 	if ((err = snd_pcm_open(&capture_handle, snd_device,
 			SND_PCM_STREAM_CAPTURE, 0)) < 0)
 	{
-		fprintf(stderr, "cannot open audio device %s (%s)\n",
-				snd_device, snd_strerror(err));
+		fprintf(stderr, "cannot open audio device %s (%s, %d)\n",
+				snd_device, snd_strerror(err), err);
 		return OPEN_ERROR;
 	}
 
@@ -75,8 +76,8 @@ int init_soundcard()
 	{
 		fprintf(
 				stderr,
-				"cannot allocate hardware parameter structure (%s)\n",
-				snd_strerror(err));
+				"cannot allocate hardware parameter structure (%s, %d)\n",
+				snd_strerror(err), err);
 		return MALLOC_ERROR;
 	}
 
@@ -84,47 +85,47 @@ int init_soundcard()
 	{
 		fprintf(
 				stderr,
-				"cannot initialize hardware parameter structure (%s)\n",
-				snd_strerror(err));
+				"cannot initialize hardware parameter structure (%s, %d)\n",
+				snd_strerror(err), err);
 		return ANY_ERROR;
 	}
 
 	if ((err = snd_pcm_hw_params_set_access(capture_handle, hw_params,
 			SND_PCM_ACCESS_RW_INTERLEAVED)) < 0)
 	{
-		fprintf(stderr, "cannot set access type (%s)\n",
-				snd_strerror(err));
+		fprintf(stderr, "cannot set access type (%s, %d)\n",
+				snd_strerror(err), err);
 		return ACCESS_ERROR;
 	}
 
 	if ((err = snd_pcm_hw_params_set_format(capture_handle, hw_params,
-			SND_PCM_FORMAT_U8)) < 0)
+			SND_PCM_FORMAT_S16_LE)) < 0)
 	{
-		fprintf(stderr, "cannot set sample format (%s)\n",
-				snd_strerror(err));
+		fprintf(stderr, "cannot set sample format (%s, %d)\n",
+				snd_strerror(err), err);
 		return FORMAT_ERROR;
 	}
 
 	if ((err = snd_pcm_hw_params_set_rate_near(capture_handle, hw_params,
 			&srate, 0)) < 0)
 	{
-		fprintf(stderr, "cannot set sample rate (%s)\n",
-				snd_strerror(err));
+		fprintf(stderr, "cannot set sample rate (%s, %d)\n",
+				snd_strerror(err), err);
 		return RATE_ERROR;
 	}
 
 	if ((err = snd_pcm_hw_params_set_channels(capture_handle, hw_params, 2))
 			< 0)
 	{
-		fprintf(stderr, "cannot set channel count (%s)\n",
-				snd_strerror(err));
+		fprintf(stderr, "cannot set channel count (%s, %d)\n",
+				snd_strerror(err), err);
 		return CHANNELS_ERROR;
 	}
 
 	if ((err = snd_pcm_hw_params(capture_handle, hw_params)) < 0)
 	{
-		fprintf(stderr, "cannot set parameters (%s)\n",
-				snd_strerror(err));
+		fprintf(stderr, "cannot set parameters (%s, %d)\n",
+				snd_strerror(err), err);
 		return PARAMS_ERROR;
 	}
 
@@ -132,8 +133,8 @@ int init_soundcard()
 	{
 		fprintf(
 				stderr,
-				"cannot prepare audio interface for use (%s)\n",
-				snd_strerror(err));
+				"cannot prepare audio interface for use (%s, %d)\n",
+				snd_strerror(err), err);
 		return PREPARE_ERROR;
 	}
 	/*
@@ -227,7 +228,7 @@ int init_wav_header()
 	wav_h.Subchunk2ID[2] = 't';
 	wav_h.Subchunk2ID[3] = 'a';
 	wav_h.NumChannels = 2;
-	wav_h.BitsPerSample = 8;
+	wav_h.BitsPerSample = 16;
 	wav_h.Subchunk2Size = MAX_SAMPLES * (uint32_t) wav_h.NumChannels
 			* (uint32_t) wav_h.BitsPerSample / 8;
 	wav_h.ChunkSize = (uint32_t) wav_h.Subchunk2Size + 36;
@@ -246,7 +247,7 @@ int init_wav_header()
 /// Open wav file and write header
 int init_wav_file()
 {
-	fwav = fopen("test_wav2.wav", "wb");
+	fwav = fopen("test_wav4.wav", "wb");
 	if (fwav != NULL)
 	{
 		fwrite(&wav_h, 1, sizeof(wav_h), fwav);
@@ -282,28 +283,44 @@ int do_record()
 	uint32_t ncount = MAX_SAMPLES / MAX_BUF_SIZE;
 	uint32_t i = 0;
 	int err = 0;
-	char wav_data[MAX_BUF_SIZE];
+	char wav_data[MAX_BUF_SIZE * 4];
 	if ((err = snd_pcm_start(capture_handle)) < 0)
 	{
 		fprintf(
 				stderr,
-				"cannot start soundcard (%s)\n",
-				snd_strerror(err));
+				"cannot start soundcard (%s, %d)\n",
+				snd_strerror(err), err);
 		return START_ERROR;
 	}
 	for (i = 0; i < ncount; i++)
 	{
+
 		if ((err = snd_pcm_readi(capture_handle, wav_data, MAX_BUF_SIZE)) != MAX_BUF_SIZE)
 		{
 			fprintf(
 					stderr,
-					"read from audio interface failed (%s)\n",
-					snd_strerror(err));
-			return SNDREAD_ERROR;
+					"read from audio interface failed (%s, %d)\n",
+					snd_strerror(err), err);
+			if (err == -32) // Broken pipe
+			{
+				if ((err = snd_pcm_prepare(capture_handle)) < 0)
+				{
+					fprintf(
+							stderr,
+							"cannot prepare audio interface for use (%s, %d)\n",
+							snd_strerror(err), err);
+					return PREPARE_ERROR;
+				}
+			}
+			else
+			{
+				return SNDREAD_ERROR;
+			}
 		}
+
 		if (fwav != NULL)
 		{
-			fwrite(wav_data, 1, MAX_BUF_SIZE, fwav);
+			fwrite(wav_data, 1, MAX_BUF_SIZE * 4, fwav);
 		}
 		else
 		{
